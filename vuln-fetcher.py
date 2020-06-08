@@ -5,7 +5,6 @@ import requests
 import argparse
 from bs4 import BeautifulSoup
 
-
 class Formatting:
     """ Give formatting to text: bold, underline, ... and fg and bg colors
 
@@ -88,7 +87,7 @@ class Vulnfetcher:
         self.header_user_agent = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) like Gecko'}
         # self.header_user_agent = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36'}
-        self.search_engine_delay = 3
+        self.search_engine_delay = 5
         self.file_name = filename
         self.output_file = filename + ".vulnfetcher"
         self.count_lines_in_file()
@@ -286,9 +285,9 @@ class Vulnfetcher:
         """Prints a report to an output file"""
 
         if filename == '':
-            filename = self.output_file + '.json'
+            filename = self.output_file + '.report'
 
-        with open(filename + '.report', 'w') as f:
+        with open(filename, 'w') as f:
             for module_id in self.db_sorted:
                 if self.db[module_id]['score']['total'] > 0:
                     f.write('\n')
