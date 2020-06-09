@@ -40,11 +40,11 @@ Appart from the onscreen report while scanning and afterwards, the tool writes t
 python3 vulnfetcher.py -h
 ```
 ## How it works
-Parsing:
+### Parsing:
 * It takes the input file, tries to make sense of the module names and module version numbers
 * For the search term, it takes the 'mayor' - 'dot' - 'first number of minor'. So "libpam-modules 1.15.2", becomes "1.1"
 * Then goes out on the web, looking with the search term: '"module_name"+"module_version"+exploit'. So in our example, it will look for '"libpam-modules"+"1.1"+"exploit"'
-Scoring:
+### Scoring:
 * For each trusted site that returns a result, it get's one point.
 * If an exact match for the complete version number is found, it get's two points. So in our example if '1.15.2' would be found, this get's two points
 * If an exact cve-number is found, the details of that cve are fetched. If those details contain indications of a severe vulnerability, then 3 points are attibuted to that
