@@ -33,11 +33,11 @@ python3 vulnfetcher.py -h
 ## Suggested Development Roadmap
 If a coder would like to pick this up, here's a suggested roadmap:
 * Have some solution for the google restrictions
-** Currently the search is slowed down bigtime (the program waits 5 secdons in between each search), since google doesn't allow crawling their results. Having some solution for this would be great.
-** Maybe a non-profit google-api-key?
+   * Currently the search is slowed down bigtime (the program waits 5 secdons in between each search), since google doesn't allow crawling their results. Having some solution for this would be great.
+   * Maybe a non-profit google-api-key?
 * Adding a progress bar when searching.
-** It would allow to display only results with a higher score and keep the output more condenced when the search is running
+   * It would allow to display only results with a higher score and keep the output more condenced when the search is running
 * Improving the scoring algorithm 
-** could be improved by doing more testing
+   * could be improved by doing more testing
 * Make code more beautiful.
-** I actually learned python to write this program, so I expect the code can be improved a lot
+   * I actually learned python to write this program, so I expect the code can be improved a lot
