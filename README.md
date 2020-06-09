@@ -9,6 +9,12 @@ I am not a coder... I just thought this would help me in my work. Coding is more
 
 If any real coder would like to contribute to this: by all means, please do!
 
+## Install updates
+```
+pip3 install requests
+pip3 install beautifulsoup4
+pip3 install lxml
+```
 ## Install
 ```
 cd /opt
