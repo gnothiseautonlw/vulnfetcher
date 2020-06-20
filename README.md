@@ -3,7 +3,7 @@
 
 > The tool uses searchengines, and can run unattended in the background. When you come back, it will have a list of potential exploits and vulnerabilities ready for you.
 
-> ![Vulnfetcher Demo](/demo/vulnfetcher-optimized.gif)
+> ![Vulnfetcher Demo](/demo/vulnfetcher_nmap_chain.gif)
 
 ## Install dependencies
 ```
@@ -26,6 +26,8 @@ nmap -sC -sV -oA scan <CHANGE_THIS_TO_TARGET_HOST> && python3 /opt/vulnfetcher/v
 dpkg -l > file
 python3 /opt/vulnfetcher/vulnfetcher.py file
 ```
+> v![Vulnfetcher Demo](/demo/vulnfetcher-optimized.gif)
+
 ## Output
 Appart from the onscreen report while scanning and afterwards, the tool writes two files in the same folder as the input file:
 * file.vulnfetcher.json
