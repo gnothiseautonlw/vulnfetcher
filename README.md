@@ -17,11 +17,11 @@ cd /opt
 git clone https://github.com/gnothiseautonlw/vulnfetcher.git
 ```
 ## Usage
-###nmap chaining
+### nmap chaining
 ```
 nmap -sC -sV -oA scan <CHANGE_THIS_TO_TARGET_HOST> && python3 /opt/vulnfetcher/vulnfetcher.py -sr scan.xml
 ```
-###dpkg
+### dpkg
 ```
 dpkg -l > file
 python3 vulnfetcher.py file
