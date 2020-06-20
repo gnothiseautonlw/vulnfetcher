@@ -425,42 +425,7 @@ class Vulnfetcher:
         #Give a report, sorted on score
         db = self.db_sorted
 
-        if self.short_report:
-            self.extract_exploits_from_db(db)
-            db = self.sort_dict(self.db_exploits)
-            for exploit_id in db:
-                title_needed = True
-                print(Formatting.bold, Formatting.underline)
-                print("Score: " + db[exploit_id]['score_string'] + ' - ' +
-                      self.limit_characters(db[exploit_id]['title'], '+10') + " " +
-                      Formatting.reset + ' (' + Formatting.fgcolor.blue +
-                      db[exploit_id]['url'] + Formatting.reset + ')')
-                for module in db[exploit_id]['modules']:
-                    if title_needed:
-                        print("Found for: ", end='')
-                        title_needed = False
-                    else:
-                        print(", ", end='')
-                    print(module, end='')
-            print()
-            if 'alternatereport' == 'nope':
-                for module_id in db:
-                    title_needed = True
-                    for result_id in db[module_id]['results']:
-                        if self.exploit_db_exploit_url in result_id:
-                            if title_needed:
-                                print(Formatting.bold, Formatting.underline)
-                                print(db[module_id]['module']['name'] + " " +
-                                      db[module_id]['module']['version_complete'] +
-                                      Formatting.reset + Formatting.bold +
-                                      ' - Score: ' + db[module_id]['score']['total_string'] +
-                                      Formatting.reset + ' (' + Formatting.fgcolor.blue +
-                                      db[module_id]['search']['url'] + Formatting.reset + ')')
-                                title_needed = False
-                            print(db[module_id]['results'][result_id]['snippet'] + ": ", end='')
-                            print(Formatting.fgcolor.blue, db[module_id]['results'][result_id]['url'] + Formatting.reset)
-                print()
-        else:
+        if self.short_report == False:
             for module_id in db:
                 if db[module_id]['score']['total'] > 0:
                     print(Formatting.bold, Formatting.underline)
@@ -480,6 +445,41 @@ class Vulnfetcher:
                                       db[module_id]['results'][result_id]['details'][details_id])
                         except:
                             pass
+
+        self.extract_exploits_from_db(db)
+        db = self.sort_dict(self.db_exploits)
+        for exploit_id in db:
+            title_needed = True
+            print(Formatting.bold, Formatting.underline)
+            print("Score: " + db[exploit_id]['score_string'] + ' - ' +
+                  self.limit_characters(db[exploit_id]['title'], '+10') + " " +
+                  Formatting.reset + ' (' + Formatting.fgcolor.blue +
+                  db[exploit_id]['url'] + Formatting.reset + ')')
+            for module in db[exploit_id]['modules']:
+                if title_needed:
+                    print("Found for: ", end='')
+                    title_needed = False
+                else:
+                    print(", ", end='')
+                print(module, end='')
+        print()
+        if 'alternatereport' == 'nope':
+            for module_id in db:
+                title_needed = True
+                for result_id in db[module_id]['results']:
+                    if self.exploit_db_exploit_url in result_id:
+                        if title_needed:
+                            print(Formatting.bold, Formatting.underline)
+                            print(db[module_id]['module']['name'] + " " +
+                                  db[module_id]['module']['version_complete'] +
+                                  Formatting.reset + Formatting.bold +
+                                  ' - Score: ' + db[module_id]['score']['total_string'] +
+                                  Formatting.reset + ' (' + Formatting.fgcolor.blue +
+                                  db[module_id]['search']['url'] + Formatting.reset + ')')
+                            title_needed = False
+                        print(db[module_id]['results'][result_id]['snippet'] + ": ", end='')
+                        print(Formatting.fgcolor.blue, db[module_id]['results'][result_id]['url'] + Formatting.reset)
+            print()
 
     def store_report(self, filename=''):
         """Prints a report to an output file
@@ -692,10 +692,10 @@ class Vulnfetcher:
 
 parser = argparse.ArgumentParser()
 parser.add_argument("input", type=str,
-                    help="The file you want to process. Currently only files coming from the "
+                    help="The file you want to process. Both nmap xml files and files coming from the "
                          "command 'dpkg -l > file' are supported")
 parser.add_argument("-no", "--no-output", action="store_true",
-                    help="By default an file with all results is generated. Use this option if you don't want to generate one")
+                    help="By default an file with all raw results and a report is generated. Use this option if you don't want to generate these files")
 parser.add_argument("-nr", "--no-report", action="store_true",
                     help="By default a report is printed to the commandline. Use this option "
                          "if you don't want to print one")
