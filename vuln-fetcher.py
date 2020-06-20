@@ -1,6 +1,8 @@
 import re
 import json
 import time
+import urllib.parse
+import os.path
 import requests
 import argparse
 from bs4 import BeautifulSoup
@@ -50,12 +52,11 @@ class Formatting:
         cyan = '\033[46m'
         lightgrey = '\033[47m'
 
-
 class Vulnfetcher:
     """A class to lookup (currently only a dpkg generated file 'dpkg -l > file') modules
     for known vulnerabilities"""
 
-    def __init__(self, filename, parse=True, output=True, print_report=True):
+    def __init__(self, filename, parse=True, output=True, print_report=True, short_report=False, print_exploits=False, force_google=False):
         """When initializing the class, a path to a file is provided
         I do a line count on the file (This was to implement a progressbar, which isn't done yet)
         I then start processing the file"""
@@ -63,39 +64,70 @@ class Vulnfetcher:
         self.db_sorted = {}
         self.db_search = {}
         self.db_module = {}
+        self.db_exploits_module = {}
+        self.db_exploits = {}
         self.db_result = {}
         self.db_results = {}
         self.db_result_detail = {}
         self.db_score = {}
         self.file_line_count = 0
+        self.searchengine_links = []
 
         # Websites that count as an interesting find:
         self.trusted_sources = ["https://vulmon.com/", "https://www.exploit-db.com", "https://www.cvedetails.com",
-                                "https://www.rapid7.com"]
+                                "https://www.rapid7.com", "https://nvd.nist.gov/vuln/"]
         self.cve_details_url = "https://www.cvedetails.com/cve/"
+        self.exploit_db_exploit_url = "https://www.exploit-db.com/exploits/"
+        self.exploit_db_exploit_title_class = "card-title"
         # get the n first search results
-        self.get_top_n = 5
+        self.get_top_n = 8
 
         self.version_complete_match_score_weight = 2
         self.cvedetails_summary = "cvedetailssummary"
         self.cvedetails_scores_and_types_id = "cvssscorestable"
         self.cvedetails_gained_access_th = "Gained Access"
         self.cvedetails_gained_access_admin_string = "Admin"
+        self.cvedetails_references_id = "vulnrefstable"
         # TODO There is also "th Vulnerability Type(s)	--> Gain privileges", example: https://www.cvedetails.com/cve/CVE-2011-3628/
         self.cvedetails_gained_access_score_weight = 3
+        self.exploit_available_score_weight = 2
+
+        self.force_google = force_google
+        self.short_report = short_report
+
+        #reporting
+        self.print_exploits = print_exploits
+        self.print_exploits_character_limit = 57
 
         self.header_user_agent = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) like Gecko'}
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0'}
         # self.header_user_agent = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36'}
-        self.search_engine_delay = 5
+        if force_google:
+            self.search_engine_delay = 5
+        else:
+            self.search_engine_delay = 0
         self.file_name = filename
         self.output_file = filename + ".vulnfetcher"
         self.count_lines_in_file()
         if parse:
-            self.file_parse(filename)
+            print(Formatting.bold)
+            print("Starting vulnfetcher" + Formatting.reset + " (https://github.com/gnothiseautonlw/vulnfetcher)")
+            print("Detecting filetype: ", end='')
+            if self.identify_file(filename) == "nmap":
+                print("found an xml file. Treating it as nmap xml.")
+                print()
+                self.process_nmap(filename)
+            else:
+                print("found text file. Treating it as a dpkg-dump.")
+                print()
+                self.process_dpkg(filename)
         if output:
-            self.store_output()
-            self.store_report()
+            print(Formatting.bold)
+            print("Writing files... " + Formatting.reset)
+            f = self.store_output()
+            print('Report written to: ' + f)
+            f = self.store_report()
+            print('Raw json-data dumped to: ' + f)
         if print_report:
             self.print_report()
 
@@ -105,7 +137,7 @@ class Vulnfetcher:
             for i, l in enumerate(f):
                 pass
         self.file_line_count = i + 1
-
+    
     def parse_dpkg(self, line):
         """Parse a dpkg file. For each line, get the module name and version"""
         module_version_mayor_minor = '???'
@@ -151,10 +183,63 @@ class Vulnfetcher:
             self.db_module['version_complete'] = module_version_complete
             return 1
 
+    def get_duckduck_links(self):
+        """Search duckduckgo and return a result array, containing a dictionary with title,
+        url and description """
+        search_term = '"' + self.db_module['name'] + '" "' + self.db_module['version_mayor_minor'] + '" exploit'
+        self.db_search['term'] = urllib.parse.quote_plus(search_term)
+        self.db_search['url'] = "https://duckduckgo.com/html/?q=" + self.db_search['term']
+
+        try:
+            data = {
+                'q': '"' + self.db_module['name'] + '" "' + self.db_module['version_mayor_minor'] + '" exploit'
+            }
+            #proxies = {"http": "http://127.0.0.1:8080", "https": "http://127.0.0.1:8080"}
+            #page = requests.post("https://duckduckgo.com/html/", headers=self.header_user_agent, data=data, proxies=proxies, verify=False)
+            page = requests.post("https://duckduckgo.com/html/", headers=self.header_user_agent, data=data)
+
+            #page = requests.get(self.db_search['url'], headers=self.header_user_agent, proxies=proxies, verify=False)
+            #page = requests.get(self.db_search['url'], headers=self.header_user_agent)
+
+            time.sleep(self.search_engine_delay)
+        except:
+            self.db_search['status_code'] = '???'
+            return []
+        else:
+            self.db_search['status_code'] = page.status_code
+            if self.db_search['status_code'] == 200:
+                soup = BeautifulSoup(page.content, 'html.parser')
+
+                links_counter = 0
+                results = []
+
+                # navigate through the dom and get the tags I'm interested in
+                for i in soup.find_all('div', {'class': 'result__body'}):
+                    try:
+                        title = i.h2.a.text
+                        description = i.find('a', {'class': 'result__snippet'}).text
+                        url = i.h2.a.get('href')
+                        results.append(dict(title=title, description=description, url=url))
+                    except Exception as e:
+                        #in duckduckgo: if no results are found, then one result with the message 'no result'
+                        # is given, this throws off the above parsing, so it gives exception, but it's actually
+                        # normal behaviour, so let this one error pass, otherwise something went wrong
+                        if i.find_all('div', class_='no-results'):
+                            pass
+                        else:
+                            print("Couldn't parse duckduckgo page: ", e)
+                    else:
+                        links_counter += 1
+                    if links_counter > self.get_top_n:
+                        break
+                return results
+            else:
+                # sometimes I get other status codes, like 429 -> 'too many requests, a temporary ban
+                return []
+
     def get_google_links(self):
         """Search google and return a result array, containing a dictionary with title,
-        url and description
-        In the init of the class a variable is defined that tells how much of the first hits we want to process """
+        url and description """
 
         # Use the format "module-name"+"module-version"+"exploit" (the '"' are used to enforce that google
         # has to include it, and can't leave it out... gives a bunch of false positives otherwise that are irrelevant
@@ -183,7 +268,7 @@ class Vulnfetcher:
                         url = i.find('div', {'class': 'r'}).a.get('href')
                         results.append(dict(title=title, description=description, url=url))
                     except Exception as e:
-                        print("Couln't parse google page: ", e)
+                        print("Couldn't parse google page: ", e)
                     links_counter += 1
                     if links_counter > self.get_top_n:
                         break
@@ -193,6 +278,25 @@ class Vulnfetcher:
                 # sometimes I get other status codes, like 429 -> 'too many requests, a temporary ban
                 self.db_search['status_code'] = page.status_code
                 return []
+
+    def get_exploit_db_exploit_details(self, result_url):
+        try:
+            exploit_db_exploit_details_page = requests.get(result_url, headers=self.header_user_agent)
+            soup = BeautifulSoup(exploit_db_exploit_details_page.content, 'html.parser')
+        except Exception as e:
+            print("Error trying to open page: " + result_url + " (", e, ")")
+            return False
+        else:
+            if exploit_db_exploit_details_page.status_code == 200:
+                try:
+                    exploit_title = soup.find('h1', class_=self.exploit_db_exploit_title_class).text.replace('\n', '').strip()
+                except Exception as e:
+                    print("Error trying to parse page: " + result_url + " (", e, ")")
+                else:
+                    # replace google snippet by the site summary
+                    self.db_result['snippet'] = exploit_title
+            else:
+                print("Got status code:", exploit_db_exploit_details_page.status_code, "for page: " + result_url)
 
     def get_cve_details(self, result_url):
         """Visit a https://www.cvedetails.com/cve/ page and get some details of the vulnerability
@@ -208,9 +312,7 @@ class Vulnfetcher:
         else:
             if cve_details_page.status_code == 200:
                 try:
-                    cve_details_summary = cve_details_soup.find(class_=self.cvedetails_summary).text.replace('\n',
-                                                                                                             '').replace(
-                        '\t', '')
+                    cve_details_summary = cve_details_soup.find(class_=self.cvedetails_summary).text.replace('\n', '').replace('\t', '')
                     # Navigate through the dom to find the tags we're interested in
                     cve_details_table = cve_details_soup.find(id=self.cvedetails_scores_and_types_id)
                     cve_details_tablerows = cve_details_table.find_all('tr')
@@ -231,6 +333,26 @@ class Vulnfetcher:
                             if cve_details_tablerow_title == self.cvedetails_gained_access_th:
                                 if cve_details_tablerow_content == self.cvedetails_gained_access_admin_string:
                                     self.db_score['gained_access'] += self.cvedetails_gained_access_score_weight
+                try:
+                    cve_details_references = cve_details_soup.find('table', id=self.cvedetails_references_id)
+                    cve_details_references = cve_details_references.find_all('td')
+                except Exception as e:
+                    print("Error trying to parse references-table: " + result_url + " (", e, ")")
+                else:
+                    for cve_details_reference in cve_details_references:
+                        try:
+                            cve_details_reference_link = cve_details_reference.a.get('href')
+                            cve_details_reference_link_text = cve_details_reference.a.text
+                        except Exception as e:
+                            print("Unable to parse references-table links: " + result_url + " (", e, ")")
+                        else:
+                            #If a reference to an exploit is found, append it to our searchengine links, so
+                            #that we process and score this link as well
+                            if self.exploit_db_exploit_url in cve_details_reference_link:
+                               test = self.searchengine_links
+                               self.searchengine_links.append({'url': cve_details_reference_link,
+                                                               'title': cve_details_reference_link,
+                                                               'description': cve_details_reference_link_text})
             else:
                 print("Got status code:", cve_details_page.status_code, "for page: " + result_url)
 
@@ -259,30 +381,111 @@ class Vulnfetcher:
         """
         return {k: self.sort_dict(v) if isinstance(v, dict) else v for k, v in sorted(item.items(), reverse=True)}
 
+    def extract_exploits_from_db(self, db):
+        """Run over each module. For each result of that module, check if that result is an URL that leads to
+        an exploit. If it does, store it in an array
+        For all exploits in that array, group them by exploit, but keep track of what modules that exploit
+        applies to"""
+        self.db_exploits = {}
+        db_exploits_no_score = {}
+        exploits = []
+        #extract all exploit-url's
+        for module_id in db:
+            for result_id in db[module_id]['results']:
+                if self.exploit_db_exploit_url in result_id:
+                    exploits.append({'title': db[module_id]['results'][result_id]['snippet'],
+                                     'url': db[module_id]['results'][result_id]['url'],
+                                     'module': {'name': db[module_id]['module']['name'],
+                                                'version_complete': db[module_id]['module']['version_complete'],
+                                                'score_total': db[module_id]['score']['total']},
+                                     'modules': [],
+                                     'score': 0})
+        #Group by exploit-url
+        for exploit in exploits:
+            if not exploit['url'] in db_exploits_no_score:
+                db_exploits_no_score[exploit['url']] = exploit
+            db_exploits_no_score[exploit['url']]['modules'].append(
+                exploit['module']['name'] + ' ' + exploit['module']['version_complete'])
+            db_exploits_no_score[exploit['url']]['score'] += exploit['module']['score_total']
+
+        #Contruct final db
+        for exploit_id in db_exploits_no_score:
+            if db_exploits_no_score[exploit_id]['score'] < 10:
+                db_exploits_no_score[exploit_id]['score_string'] = '0' + str(self.db_score['total'])
+            else:
+                db_exploits_no_score[exploit_id]['score_string'] = str(db_exploits_no_score[exploit_id]['score'])
+
+            self.db_exploits[db_exploits_no_score[exploit_id]['score_string'] + ' - ' + exploit_id] = db_exploits_no_score[exploit_id]
+
     def print_report(self):
-        """Prints a report to the commandline"""
-        for module_id in self.db:
-            if self.db[module_id]['score']['total'] > 0:
+        """Prints a report to the commandline
+        The argument '-sr' or '--short-report' forces a short report, showing only the name, score,
+        search URL and a list of found exploits
+        Without the argument '-sr', the standard report is printed
+        The argument '-nr' or '--no-report' suppresses any report to be output to the command line"""
+        #Give a report, sorted on score
+        db = self.db_sorted
+
+        if self.short_report:
+            self.extract_exploits_from_db(db)
+            db = self.sort_dict(self.db_exploits)
+            for exploit_id in db:
+                title_needed = True
                 print(Formatting.bold, Formatting.underline)
-                print(self.db[module_id]['module']['name'] + " " + self.db[module_id]['module']['version_complete'] +
-                      Formatting.reset + ' (' + Formatting.fgcolor.blue + self.db[module_id]['search'][
-                          'url'] + Formatting.reset + ')')
-                print(Formatting.bold + 'Score: ' + self.db[module_id]['score']['total_string'] + Formatting.reset)
-                url_counter = 1
-                for result_id in self.db[module_id]['results']:
-                    print(str(url_counter) + ')' + Formatting.fgcolor.blue,
-                          self.db[module_id]['results'][result_id]['url'] + Formatting.reset)
-                    print(self.db[module_id]['results'][result_id]['snippet'])
-                    url_counter += 1
-                    try:
-                        for details_id in self.db[module_id]['results'][result_id]['details']:
-                            print('   ' + details_id + ": " +
-                                  self.db[module_id]['results'][result_id]['details'][details_id])
-                    except:
-                        pass
+                print("Score: " + db[exploit_id]['score_string'] + ' - ' +
+                      self.limit_characters(db[exploit_id]['title'], '+10') + " " +
+                      Formatting.reset + ' (' + Formatting.fgcolor.blue +
+                      db[exploit_id]['url'] + Formatting.reset + ')')
+                for module in db[exploit_id]['modules']:
+                    if title_needed:
+                        print("Found for: ", end='')
+                        title_needed = False
+                    else:
+                        print(", ", end='')
+                    print(module, end='')
+            print()
+            if 'alternatereport' == 'nope':
+                for module_id in db:
+                    title_needed = True
+                    for result_id in db[module_id]['results']:
+                        if self.exploit_db_exploit_url in result_id:
+                            if title_needed:
+                                print(Formatting.bold, Formatting.underline)
+                                print(db[module_id]['module']['name'] + " " +
+                                      db[module_id]['module']['version_complete'] +
+                                      Formatting.reset + Formatting.bold +
+                                      ' - Score: ' + db[module_id]['score']['total_string'] +
+                                      Formatting.reset + ' (' + Formatting.fgcolor.blue +
+                                      db[module_id]['search']['url'] + Formatting.reset + ')')
+                                title_needed = False
+                            print(db[module_id]['results'][result_id]['snippet'] + ": ", end='')
+                            print(Formatting.fgcolor.blue, db[module_id]['results'][result_id]['url'] + Formatting.reset)
+                print()
+        else:
+            for module_id in db:
+                if db[module_id]['score']['total'] > 0:
+                    print(Formatting.bold, Formatting.underline)
+                    print(db[module_id]['module']['name'] + " " + db[module_id]['module']['version_complete'] +
+                          Formatting.reset + ' (' + Formatting.fgcolor.blue + db[module_id]['search'][
+                              'url'] + Formatting.reset + ')')
+                    print(Formatting.bold + 'Score: ' + db[module_id]['score']['total_string'] + Formatting.reset)
+                    url_counter = 1
+                    for result_id in db[module_id]['results']:
+                        print(str(url_counter) + ')' + Formatting.fgcolor.blue,
+                              db[module_id]['results'][result_id]['url'] + Formatting.reset)
+                        print(db[module_id]['results'][result_id]['snippet'])
+                        url_counter += 1
+                        try:
+                            for details_id in db[module_id]['results'][result_id]['details']:
+                                print('   ' + details_id + ": " +
+                                      db[module_id]['results'][result_id]['details'][details_id])
+                        except:
+                            pass
 
     def store_report(self, filename=''):
-        """Prints a report to an output file"""
+        """Prints a report to an output file
+
+        Return value: filename"""
 
         if filename == '':
             filename = self.output_file + '.report'
@@ -306,9 +509,28 @@ class Vulnfetcher:
                                         self.db[module_id]['results'][result_id]['details'][details_id] + '\n')
                         except:
                             pass
+        return filename
+
+    def limit_characters(self, string, limit=0):
+        """Feed it a string and it limits the characters to a certain length. If the initial string was
+        longer then the limit, the string is truncated and appended with '...', otherwise the original
+        string is returned.
+        You always get a string in return that's no longer than your requested limit"""
+        if limit == 0:
+            limit = self.print_exploits_character_limit
+        if isinstance(limit, str):
+            if limit[0:1] == '+':
+                limit = self.print_exploits_character_limit + int(limit[1:])
+            else:
+                raise ValueError("Can't parse the argument: you gave a string as 'limit', I expected the first character to be a '+', but it was something else.")
+        if len(string) > limit:
+            return string[0:limit] + '...'
+        else:
+            return string
 
     def print_status(self):
-        """Store the report to an output file"""
+        """While the search is running, this function outputs a short status-report for each search
+        to the command line"""
         # with a status bar, I could only limit the output to results with a score,
         # significant enough to show:
         # if db_score['total'] > round(self.get_top_n / 2):
@@ -328,7 +550,112 @@ class Vulnfetcher:
         print(" - " + self.db_module['name'] + " " + self.db_module['version_complete'] + " - ", end='')
         print(Formatting.fgcolor.blue + self.db_search['url'] + Formatting.reset)
 
-    def file_parse(self, filename):
+        if self.print_exploits:
+            header_printed = False
+            for result_id in self.db_results:
+                if self.exploit_db_exploit_url in result_id:
+                    exploit_snippet = self.limit_characters(self.db_results[result_id]['snippet'])
+
+                    if header_printed:
+                        print(", " + exploit_snippet, end='')
+                    else:
+                        print("(" + exploit_snippet, end='')
+                        header_printed = True
+            if header_printed:
+                print(")")
+
+    def identify_file(self, filename):
+        """Function that tries to make sense of whatever file you feed it. Currently it's simple:
+        if you feed it a file with an xml extension, it supposes a nmap-xml
+        If you feed it something that has no xml extension, it supposes you feed it a dpkg-dump"""
+        extension = os.path.splitext(filename)[1]
+        if extension == ".xml":
+            return "nmap"
+        else:
+            return "dpkg"
+
+    def fetch_vulnerabilities(self):
+        """Do a search on a searchengine, parse the results and give it a score"""
+        self.db_score = {}
+        self.db_score['gained_access'] = 0
+        self.db_score['version_complete_match'] = 0
+        self.db_score['trusted_count'] = 0
+        self.db_score['exploit_available'] = 0
+        self.db_score['exploit_available_but_no_name_match'] = 0
+        self.db_score['exploit_available_but_no_version_mayor_minor_match'] = 0
+        # then get the search results for this module-name and version number
+        if self.force_google:
+            self.searchengine_links = self.get_google_links()
+        else:
+            self.searchengine_links = self.get_duckduck_links()
+        # For each link, iterate over it
+        for link in self.searchengine_links:
+            self.db_result = {}
+            # iterate over all trusted sources
+            for trusted_source in self.trusted_sources:
+                # if our link is a trusted source, and the description contains the name of the module
+                if trusted_source in link['url']:
+                    self.db_result['url'] = link['url']
+                    self.db_result['snippet'] = link['description']
+
+                    self.db_result_detail = {}
+                    if self.exploit_db_exploit_url in link['url']:
+                        self.db_score['exploit_available'] += self.exploit_available_score_weight
+                        self.get_exploit_db_exploit_details(link['url'])
+                        if not self.db_module['name'] in self.db_result['snippet']:
+                            self.db_score['exploit_available_but_no_name_match'] -= 1
+                        if self.db_module['version_complete'] == '' or not self.db_module['version_mayor_minor'] in self.db_result['snippet']:
+                            self.db_score['exploit_available_but_no_version_mayor_minor_match'] -= 1
+
+                    if self.cve_details_url in link['url']:
+                        # grab details
+                        self.get_cve_details(link['url'])
+                        self.db_result['details'] = self.db_result_detail
+
+                    self.db_results[link['url']] = self.db_result
+
+                    if not self.db_module['version_complete'] == '' and self.db_module['version_complete'] in self.db_result['snippet']:
+                        self.db_score['version_complete_match'] += self.version_complete_match_score_weight
+                    self.db_score['trusted_count'] += 1
+        self.calculate_score()
+
+    def process_nmap(self, filename):
+        """Read all servicenames and version numbers from an nmap file, then do an online search
+        for vulnerabilities"""
+        with open(filename) as file:
+            contents = file.read()
+            soup = BeautifulSoup(contents, 'xml')
+            services = soup.find_all('service')
+            for service in services:
+                self.db_search = {}
+                self.db_results = {}
+                self.db_module = {}
+                name = service.get('product')
+                version_complete = service.get('version')
+                if name == None:
+                    #If a service doesn't have a name, it may be a closed or filtered port, either way, there
+                    #is no point looking for something, just skip this record
+                    continue
+                if version_complete == None:
+                    version_complete = ''
+                    version_mayor_minor = ''
+                else:
+                    version_mayor_minor = re.search('(^\d*\.\d|^\d*:\d*\.\d|^\d\d*)', version_complete, flags=re.DOTALL).group(0).strip()
+                self.db_module['raw_name'] = name
+                self.db_module['name'] = name
+                self.db_module['version_complete'] = version_complete
+                self.db_module['version_mayor_minor'] = version_mayor_minor
+                self.fetch_vulnerabilities()
+
+                self.db[self.db_score['total_string'] + ' - ' + self.db_module['name'] + " " + self.db_module[
+                    'version_complete']] = {"module": self.db_module, "score": self.db_score, "search": self.db_search,
+                                            "results": self.db_results}
+
+                self.print_status()
+            # if the entire file is processes, create a sorted database
+            self.db_sorted = self.sort_dict(self.db)
+
+    def process_dpkg(self, filename):
         """For each line, extract the module name and version number, the do an online search
         and retrieve relevant information"""
         line_counter = 0
@@ -340,35 +667,7 @@ class Vulnfetcher:
                 line_counter += 1
                 # If I successfully parsed the current line in the input-file
                 if self.parse_dpkg(line):
-                    self.db_score = {}
-                    self.db_score['gained_access'] = 0
-                    self.db_score['version_complete_match'] = 0
-                    self.db_score['trusted_count'] = 0
-                    # then get the search results for this module-name and version number
-                    links = self.get_google_links()
-                    # For each link, iterate over it
-                    for link in links:
-                        self.db_result = {}
-                        # iterate over all trusted sources
-                        for trusted_source in self.trusted_sources:
-                            # if our link is a trusted source, and the description contains the name of the module
-                            if trusted_source in link['url']:
-                                self.db_result['url'] = link['url']
-                                self.db_result['snippet'] = link['description']
-
-                                self.db_result_detail = {}
-                                if self.cve_details_url in link['url']:
-                                    # grab details
-                                    self.get_cve_details(link['url'])
-                                    self.db_result['details'] = self.db_result_detail
-
-                                self.db_results[link['url']] = self.db_result
-
-                                if self.db_module['version_complete'] in self.db_result['snippet']:
-                                    self.db_score['version_complete_match'] += self.version_complete_match_score_weight
-                                self.db_score['trusted_count'] += 1
-
-                    self.calculate_score()
+                    self.fetch_vulnerabilities()
 
                 self.db[self.db_score['total_string'] + ' - ' + self.db_module['name'] + " " + self.db_module[
                     'version_complete']] = {"module": self.db_module, "score": self.db_score, "search": self.db_search,
@@ -383,8 +682,6 @@ class Vulnfetcher:
         if filename == "":
             filename = self.output_file + '.json'
 
-        print("Writing file...")
-
         if sort_order == "d":
             with open(filename, 'w') as outfile:
                 json.dump(self.db, outfile, sort_keys=True, indent=4)
@@ -392,17 +689,26 @@ class Vulnfetcher:
             with open(filename, 'w') as outfile:
                 json.dump(self.db_sorted, outfile, indent=4)
 
+        return filename
 
 parser = argparse.ArgumentParser()
 parser.add_argument("input", type=str,
                     help="The file you want to process. Currently only files coming from the "
                          "command 'dpkg -l > file' are supported")
 parser.add_argument("-no", "--no-output", action="store_true",
-                    help="By default an outputfile is generated. Use this option if you don't want to generate one")
+                    help="By default an file with all results is generated. Use this option if you don't want to generate one")
 parser.add_argument("-nr", "--no-report", action="store_true",
                     help="By default a report is printed to the commandline. Use this option "
                          "if you don't want to print one")
+parser.add_argument("-sr", "--short-report", action="store_true",
+                    help="By default an extensive report is printed to the command line. Use this flag to print a short report that shows only the found exploits")
+parser.add_argument("-se", "--show-exploits", action="store_true",
+                    help="By default exploits aren't listed in the command line status report (the output during the search). Use this flag if you want to show them in the report during search")
+parser.add_argument("-fg", "--force-google", action="store_true",
+                    help="By default the duckduckgo searchengine is used. You can force to use google as searchengine. Just know that google will probably ban yo ass after about 150 searches: they don't like that you crawl their website")
 args = parser.parse_args()
 input_file = args.input
 
-vulnfetcher = Vulnfetcher(input_file, True, not args.no_output, not args.no_report)
+test = args.force_google
+
+vulnfetcher = Vulnfetcher(input_file, True, not args.no_output, not args.no_report, args.short_report, args.show_exploits, args.force_google)
