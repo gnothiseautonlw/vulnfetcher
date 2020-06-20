@@ -5,7 +5,7 @@
 
 > It doesn't pretend to be smarter than you: it performs basic searches, scores the results and highlights what sticks out. It basically drops lowhanging fruits in your lap while you perform manual enumeration.
 
-> ![Vulnfetcher Demo](/demo/vulnfetcher_nmap_chain.gif)
+> ![Vulnfetcher Nmap Demo](/demo/vulnfetcher_nmap_chain.gif)
 
 ## Install dependencies
 ```
@@ -28,7 +28,7 @@ nmap -sC -sV -oA scan <CHANGE_THIS_TO_TARGET_HOST> && python3 /opt/vulnfetcher/v
 dpkg -l > file
 python3 /opt/vulnfetcher/vulnfetcher.py file
 ```
-> v![Vulnfetcher Demo](/demo/vulnfetcher-optimized.gif)
+> v![Vulnfetcher Dpkg Demo](/demo/vulnfetcher_dpkg_optimized.gif)
 
 ## Output
 Appart from the onscreen report while scanning and afterwards, the tool writes two files in the same folder as the input file:
