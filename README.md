@@ -46,19 +46,22 @@ python3 /opt/vulnfetcher/vulnfetcher.py -h
 * It takes the input file, tries to make sense of the module names and module version numbers
 * For the search term, it takes the 'mayor' - 'dot' - 'first number of minor'. So "libpam-modules 1.15.2", becomes "1.1"
 * Then goes out on the web, looking with the search term: '"module_name"+"module_version"+exploit'. So in our example, it will look for '"libpam-modules"+"1.1"+"exploit"'
+* If it finds exact CVE numbers, it will go fetch those details and bring them to you
+* If it finds a public exploit reference on for example the cvedetails website, it will reference to that exploit. In other words, it doesn't only use searchengine pages, it also fetches information of cvedetails pages and exploit-db pages
 ### Scoring:
 * For each trusted site that returns a result, it get's one point.
-* If an exact match for the complete version number is found, it get's two points. So in our example if '1.15.2' would be found, this get's two points
-* If an exact cve-number is found, the details of that cve are fetched. If those details contain indications of a severe vulnerability, then 3 points are attibuted to that
+* If names or version numbers aren't found, it penelizes the score.
+* If an exact match for the complete version number is found, it adds to the score. So in our example if '1.15.2' would be found, this would result in a higher score
+* If an exact cve-number is found, the details of that cve are fetched. If those details contain indications of a severe vulnerability, resulting in a higher score
 
 ## Suggested Development Roadmap
 If a coder would like to pick this up, here's a suggested roadmap:
-* Have some solution for the google restrictions
-   * Currently the search is slowed down bigtime (the program waits 5 secdons in between each search), since google doesn't allow crawling their results. Having some solution for this would be great.
-   * Maybe a non-profit google-api-key?
+* Currently I use duckduckgo as searchengine and crawl those results
+   * Maybe there are better solutions, like maybe a non-profit google-api-key?
 * Adding a progress bar when searching.
    * It would allow to display only results with a higher score and keep the output more condenced when the search is running
-* Support for other input formats
+* Extensive testing
+* Support for more input formats
 * Improving the scoring algorithm 
    * could be improved by doing more testing
 * Make code more beautiful.
