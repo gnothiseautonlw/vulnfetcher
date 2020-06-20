@@ -64,7 +64,6 @@ class Vulnfetcher:
         self.db_sorted = {}
         self.db_search = {}
         self.db_module = {}
-        self.db_exploits_module = {}
         self.db_exploits = {}
         self.db_result = {}
         self.db_results = {}
