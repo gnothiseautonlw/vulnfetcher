@@ -24,6 +24,7 @@ git clone https://github.com/gnothiseautonlw/vulnfetcher.git
 nmap -sC -sV -oA scan <CHANGE_THIS_TO_TARGET_HOST> && python3 /opt/vulnfetcher/vulnfetcher.py -sr scan.xml
 ```
 ### dpkg
+> The goal of the debian packages-list support is to give you a fighting change to reduce a list of 200 installed packages to a handful of potentially vulnerable targets, sorted on probability of vulnerability:
 ```
 dpkg -l > file
 python3 /opt/vulnfetcher/vulnfetcher.py file
