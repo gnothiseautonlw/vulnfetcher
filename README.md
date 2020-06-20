@@ -24,7 +24,7 @@ nmap -sC -sV -oA scan <CHANGE_THIS_TO_TARGET_HOST> && python3 /opt/vulnfetcher/v
 ### dpkg
 ```
 dpkg -l > file
-python3 vulnfetcher.py file
+python3 /opt/vulnfetcher/vulnfetcher.py file
 ```
 ## Output
 Appart from the onscreen report while scanning and afterwards, the tool writes two files in the same folder as the input file:
@@ -35,7 +35,7 @@ Appart from the onscreen report while scanning and afterwards, the tool writes t
 
 ## Help
 ```
-python3 vulnfetcher.py -h
+python3 /opt/vulnfetcher/vulnfetcher.py -h
 ```
 ## How it works
 ### Parsing:
