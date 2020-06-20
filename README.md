@@ -55,8 +55,12 @@ python3 /opt/vulnfetcher/vulnfetcher.py -h
 * If an exact match for the complete version number is found, it adds to the score. So in our example if '1.15.2' would be found, this would result in a higher score
 * If an exact cve-number is found, the details of that cve are fetched. If those details contain indications of a severe vulnerability, resulting in a higher score
 
+## Error reporting
+* This is still in beta: I have one error that sometimes throws off searches. It seems to have something to do with the useragent, but I have a hard time tracking the bug down. 
+* If the tool doesn't find a vulnerability that you were able to find manually, please report an issue. Provide a sample of the file you used as input and a page where you eventually found the vulnerability.
+
 ## Suggested Development Roadmap
-If a coder would like to pick this up, here's a suggested roadmap:
+If a real coder would like to pick this up, here's a suggested roadmap:
 * Currently I use duckduckgo as searchengine and crawl those results
    * Maybe there are better solutions, like maybe a non-profit google-api-key?
 * Adding a progress bar when searching.
