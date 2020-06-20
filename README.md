@@ -3,6 +3,8 @@
 
 > The tool uses searchengines, and can run unattended in the background. When you come back, it will have a list of potential exploits and vulnerabilities ready for you.
 
+> Because of it's extensive reports, it doesn't pretend to be smarter than you, it just performs basic searches and scores it's findings to narrow down what you are searching for.
+
 > ![Vulnfetcher Demo](/demo/vulnfetcher_nmap_chain.gif)
 
 ## Install dependencies
