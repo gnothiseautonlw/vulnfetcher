@@ -114,10 +114,15 @@ class Vulnfetcher:
             print(Formatting.bold)
             print("Starting vulnfetcher" + Formatting.reset + " (https://github.com/gnothiseautonlw/vulnfetcher)")
             print("Detecting filetype: ", end='')
-            if self.identify_file(filename) == "nmap":
+            file_identifier = self.identify_file(filename)
+            if file_identifier == "nmap":
                 print("found an xml file. Treating it as nmap xml.")
                 print()
                 self.process_nmap(filename)
+            elif file_identifier == 'tab':
+                print("found text file. Treating it as tab-separated file.")
+                print()
+                self.process_tab(filename)
             else:
                 print("found text file. Treating it as a dpkg-dump.")
                 print()
@@ -613,7 +618,16 @@ class Vulnfetcher:
         if extension == ".xml":
             return "nmap"
         else:
-            return "dpkg"
+            with open(filename) as file:
+                for line in file:
+                    test = line.split('\t')
+                    if len(test) == 2:
+                        try:
+                            test2 = re.search('(\d*\.\d|\d*:\d*\.\d|\d\d*)', test[1], flags=re.DOTALL).group(0).strip()
+                        except:
+                            return "dpkg"
+                        else:
+                            return "tab"
 
     def fetch_vulnerabilities(self):
         """Do a search on a searchengine, parse the results and give it a score"""
@@ -659,6 +673,47 @@ class Vulnfetcher:
                         self.db_score['version_complete_match'] += self.version_complete_match_score_weight
                     self.db_score['trusted_count'] += 1
         self.calculate_score()
+
+    def parse_tab(self, line):
+        array = line.split('\t')
+        if len(array) == 2:
+            try:
+                self.db_module['version_complete'] = re.search('\d+([\.:]\d+)*', array[1], flags=re.DOTALL).group(0).strip()
+                self.db_module['version_mayor_minor'] = re.search('(\d*\.\d|\d*:\d*\.\d|\d\d*)', array[1], flags=re.DOTALL).group(0).strip()
+            except:
+                self.db_module['version_complete'] = ''
+                self.db_module['version_mayor_minor'] = ''
+            finally:
+                if array[0].strip() == '':
+                    return False
+                else:
+                    self.db_module['raw_name'] = array[0]
+                    self.db_module['name'] = array[0]
+                    return True
+
+    def process_tab(self, filename):
+        """Read all servicenames and version numbers from a tab-separated file, then do an online search
+        for vulnerabilities"""
+
+        with open(filename) as file:
+            for line in file:
+                self.db_search = {}
+                self.db_results = {}
+                self.db_module = {}
+                # If I successfully parsed the current line in the input-file
+                if self.parse_tab(line):
+                    self.fetch_vulnerabilities()
+                else:
+                    continue
+
+                self.db[self.db_score['total_string'] + ' - ' + self.db_module['name'] + " " + self.db_module[
+                    'version_complete']] = {"module": self.db_module, "score": self.db_score,
+                                            "search": self.db_search,
+                                            "results": self.db_results}
+
+                self.print_status()
+            # if the entire file is processes, create a sorted database
+            self.db_sorted = self.sort_dict(self.db)
 
     def process_nmap(self, filename):
         """Read all servicenames and version numbers from an nmap file, then do an online search
