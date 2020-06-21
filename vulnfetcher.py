@@ -484,6 +484,27 @@ class Vulnfetcher:
                         print(Formatting.fgcolor.blue, db[module_id]['results'][result_id]['url'] + Formatting.reset)
             print()
 
+    def starwrap(self, title, f=None):
+        """used for the reporting: it wraps a title in asterisks"""
+        # if no file handler is given, we'll want to output to screen
+        if f == None:
+            for i in title:
+                print("*", end='')
+            print()
+            print(title)
+            for i in title:
+                print("*", end='')
+            print()
+        else:
+            for i in title:
+                f.write("*")
+            f.write('\n')
+            f.write(title)
+            f.write('\n')
+            for i in title:
+                f.write("*")
+            f.write('\n')
+
     def store_report(self, filename=''):
         """Prints a report to an output file
 
@@ -495,15 +516,14 @@ class Vulnfetcher:
         with open(filename, 'w') as f:
             for module_id in self.db_sorted:
                 if self.db[module_id]['score']['total'] > 0:
+                    title = self.db[module_id]['module']['name'] + " " + self.db[module_id]['module']['version_complete'] + ' (' + self.db[module_id]['search']['url'] + ')'
                     f.write('\n')
-                    f.write(
-                        self.db[module_id]['module']['name'] + " " + self.db[module_id]['module']['version_complete']
-                        + ' (' + self.db[module_id]['search']['url'] + ')' + '\n')
+                    self.starwrap(title, f)
                     f.write('Score: ' + self.db[module_id]['score']['total_string'] + '\n')
                     url_counter = 1
                     for result_id in self.db[module_id]['results']:
-                        f.write(str(url_counter) + ')' + self.db[module_id]['results'][result_id]['url'] + '\n')
-                        f.write(self.db[module_id]['results'][result_id]['snippet'] + '\n')
+                        f.write('\n' + str(url_counter) + ')' + self.db[module_id]['results'][result_id]['url'] + '\n')
+                        f.write('- ' + self.db[module_id]['results'][result_id]['snippet'] + '\n')
                         url_counter += 1
                         try:
                             for details_id in self.db[module_id]['results'][result_id]['details']:
@@ -514,6 +534,8 @@ class Vulnfetcher:
 
             self.extract_exploits_from_db(self.db_sorted)
             db = self.sort_dict(self.db_exploits)
+            f.write('\n')
+            self.starwrap("Exploits summary", f)
             for exploit_id in db:
                 title_needed = True
                 f.write('\n')
