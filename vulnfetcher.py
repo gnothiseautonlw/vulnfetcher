@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import re
 import json
 import time
@@ -124,9 +126,9 @@ class Vulnfetcher:
             print(Formatting.bold)
             print("Writing files... " + Formatting.reset)
             f = self.store_output()
-            print('Report written to: ' + f)
-            f = self.store_report()
             print('Raw json-data dumped to: ' + f)
+            f = self.store_report()
+            print('Report written to: ' + f)
         if print_report:
             self.print_report()
 
@@ -463,6 +465,7 @@ class Vulnfetcher:
                     print(", ", end='')
                 print(module, end='')
         print()
+        #This can never execute, but it's an alternateformatting that may I may use somehow
         if 'alternatereport' == 'nope':
             for module_id in db:
                 title_needed = True
@@ -508,6 +511,23 @@ class Vulnfetcher:
                                         self.db[module_id]['results'][result_id]['details'][details_id] + '\n')
                         except:
                             pass
+
+            self.extract_exploits_from_db(self.db_sorted)
+            db = self.sort_dict(self.db_exploits)
+            for exploit_id in db:
+                title_needed = True
+                f.write('\n')
+                f.write("Score: " + db[exploit_id]['score_string'] + ' - ' +
+                      self.limit_characters(db[exploit_id]['title'], '+10') + ' (' + db[exploit_id]['url'] + ')' + '\n')
+                for module in db[exploit_id]['modules']:
+                    if title_needed:
+                        f.write("Found for: ")
+                        title_needed = False
+                    else:
+                        f.write(", ")
+                    f.write(module)
+            f.write('\n')
+
         return filename
 
     def limit_characters(self, string, limit=0):
