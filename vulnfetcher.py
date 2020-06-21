@@ -108,25 +108,33 @@ class Vulnfetcher:
         else:
             self.search_engine_delay = 0
         self.file_name = filename
-        self.output_file = filename + ".vulnfetcher"
-        self.count_lines_in_file()
+        #self.count_lines_in_file()
         if parse:
             print(Formatting.bold)
             print("Starting vulnfetcher" + Formatting.reset + " (https://github.com/gnothiseautonlw/vulnfetcher)")
             print("Detecting filetype: ", end='')
             file_identifier = self.identify_file(filename)
-            if file_identifier == "nmap":
-                print("found an xml file. Treating it as nmap xml.")
-                print()
-                self.process_nmap(filename)
-            elif file_identifier == 'tab':
-                print("found text file. Treating it as tab-separated file.")
-                print()
-                self.process_tab(filename)
+            if file_identifier == 'single_search':
+                print("file not found. Treating it as a single-search for the term: " + filename)
+                #We don't want any outputfiles to be generated
+                output = False
+                #Reduce the processed search results
+                self.get_top_n = 5
+                self.process_single_search(filename)
             else:
-                print("found text file. Treating it as a dpkg-dump.")
-                print()
-                self.process_dpkg(filename)
+                self.output_file = filename + ".vulnfetcher"
+                if file_identifier == "nmap":
+                    print("found an xml file. Treating it as nmap xml.")
+                    print()
+                    self.process_nmap(filename)
+                elif file_identifier == 'tab':
+                    print("found text file. Treating it as tab-separated file.")
+                    print()
+                    self.process_tab(filename)
+                else:
+                    print("found text file. Treating it as a dpkg-dump.")
+                    print()
+                    self.process_dpkg(filename)
         if output:
             print(Formatting.bold)
             print("Writing files... " + Formatting.reset)
@@ -455,6 +463,10 @@ class Vulnfetcher:
 
         self.extract_exploits_from_db(db)
         db = self.sort_dict(self.db_exploits)
+        print(Formatting.bold, Formatting.underline)
+        print("Exploit(s) summary" + Formatting.reset)
+        if len(db) == 0:
+            print("No public exploits found")
         for exploit_id in db:
             title_needed = True
             print(Formatting.bold, Formatting.underline)
@@ -540,7 +552,9 @@ class Vulnfetcher:
             self.extract_exploits_from_db(self.db_sorted)
             db = self.sort_dict(self.db_exploits)
             f.write('\n')
-            self.starwrap("Exploits summary", f)
+            self.starwrap("Exploit(s) summary", f)
+            if len(db) == 0:
+                f.write("No public exploits found" + '\n')
             for exploit_id in db:
                 title_needed = True
                 f.write('\n')
@@ -614,6 +628,12 @@ class Vulnfetcher:
         """Function that tries to make sense of whatever file you feed it. Currently it's simple:
         if you feed it a file with an xml extension, it supposes a nmap-xml
         If you feed it something that has no xml extension, it supposes you feed it a dpkg-dump"""
+        
+        #file doesn't exist
+        if not os.path.exists('filename'):
+            return "single_search"
+        
+        #file with extension .xml
         extension = os.path.splitext(filename)[1]
         if extension == ".xml":
             return "nmap"
@@ -690,6 +710,44 @@ class Vulnfetcher:
                     self.db_module['raw_name'] = array[0]
                     self.db_module['name'] = array[0]
                     return True
+
+    def process_single_search(self, filename):
+        """
+
+        :param filename:
+        :return:
+        """
+
+        self.db_search = {}
+        self.db_results = {}
+        self.db_module = {}
+        array = filename.split('^')
+        if len(array) == 1:
+            self.db_module['version_complete'] = ''
+            self.db_module['version_mayor_minor'] = ''
+        else:
+            self.db_module['version_complete'] = array[1]
+            try:
+                self.db_module['version_mayor_minor'] = re.search('(^\d*\.\d|^\d*:\d*\.\d|^\d\d*)', array[1],
+                                                flags=re.DOTALL).group(0).strip()
+            except:
+                self.db_module['version_mayor_minor'] = ''
+
+        if array[0].strip() == '':
+            # If a service doesn't have a name, it may be a closed or filtered port, either way, there
+            # is no point looking for something
+            return False
+        self.db_module['raw_name'] = array[0]
+        self.db_module['name'] = array[0]
+        self.fetch_vulnerabilities()
+
+        self.db[self.db_score['total_string'] + ' - ' + self.db_module['name'] + " " + self.db_module[
+            'version_complete']] = {"module": self.db_module, "score": self.db_score, "search": self.db_search,
+                                    "results": self.db_results}
+
+        self.print_status()
+
+        self.db_sorted = self.sort_dict(self.db)
 
     def process_tab(self, filename):
         """Read all servicenames and version numbers from a tab-separated file, then do an online search
@@ -792,7 +850,7 @@ parser.add_argument("input", type=str,
                     help="The file you want to process. Both nmap xml files and files coming from the "
                          "command 'dpkg -l > file' are supported")
 parser.add_argument("-no", "--no-output", action="store_true",
-                    help="By default an file with all raw results and a report is generated. Use this option if you don't want to generate these files")
+                    help="By default a json file with all raw results and a readable report is generated. Use this option if you don't want to generate these files")
 parser.add_argument("-nr", "--no-report", action="store_true",
                     help="By default a report is printed to the commandline. Use this option "
                          "if you don't want to print one")

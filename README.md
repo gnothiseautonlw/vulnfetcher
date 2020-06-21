@@ -1,11 +1,9 @@
 # Vulnfetcher
-> An enumeration tool that can be chained to nmap, or take list of installed packages or services and search the web for known vulnerabilities.
+> An enumeration tool similar to searchsploit: it searches the web for known vulnerabilities. It fetches related information and public available exploits, scores the results and orders them based on frequency and severity.
 
-> It's similar to searchsploit, but differs in that it uses searchengines, is able to process large lists unattended in the background and it plays well with nmap.
+> It differs from searchsploit in that it uses searchengines. It is slower, but more forgiving when it comes to search-terms, it's able to process large lists unattended in the background and plays well with nmap.
 
-> It performs basic searches, scores the results and highlights what sticks out.
-
-> ![Vulnfetcher Nmap Demo](/demo/vulnfetcher_nmap_chain.gif)
+> ![Vulnfetcher Nmap Demo](/demo/vulnfetcher_simple_search_and_nmap_chain.gif)
 
 ## Install dependencies
 ```
@@ -32,17 +30,24 @@ Status: 200 - Score: 18 - libpam-modules  1.1.0 - https://duckduckgo.com/html/?q
 > If you receive scores that are below 3 for any of these, you are encountering a known bug. Please report. Unless fixed you can not use this tool reliably
 
 ## Usage
+### simple search
+```
+./vulnfetcher.py libpam-modules  	#one-word search
+./vulnfetcher.py libpam-modules^2.3.2  	#Use '^' as a separator between the version and the name
+./vulnfetcher.py "James smtpd"		#multiple words
+./vulnfetcher.py "James smtpd^2.3.2"	#Use '^' as a separator between the version and the name
+```
 ### nmap chaining
 ```
 nmap -sC -sV -oA scan <CHANGE_THIS_TO_TARGET_HOST> && python3 /opt/vulnfetcher/vulnfetcher.py -sr scan.xml
 ```
 ### dpkg
-> The goal of the debian packages-list support is to give you a fighting change to reduce a list of 200 installed packages to a handful of potentially vulnerable targets, sorted on probability of vulnerability:
+> Allows you to reduce a list of say 200 installed packages to a handful of potentially vulnerable targets, sorted on probability of vulnerability:
 ```
 dpkg -l > file
 python3 /opt/vulnfetcher/vulnfetcher.py file
 ```
-> v![Vulnfetcher Dpkg Demo](/demo/vulnfetcher_dpkg_optimized.gif)
+> ![Vulnfetcher Dpkg Demo](/demo/vulnfetcher_dpkg_optimized.gif)
 ### tab-separated file
 > Create a tab-separated file with the structure:
 ```
@@ -70,16 +75,18 @@ python3 /opt/vulnfetcher/vulnfetcher.py -h
 * It takes the input file, tries to make sense of the module names and module version numbers
 * For the search term, it takes the 'mayor' - 'dot' - 'first number of minor'. So "libpam-modules 1.15.2", becomes "1.1"
 * Then goes out on the web, looking with the search term: '"module_name"+"module_version"+exploit'. So in our example, it will look for '"libpam-modules"+"1.1"+"exploit"'
-* If it finds exact CVE numbers, it will go fetch those details and bring them to you
-* If it finds a public exploit reference on for example the cvedetails website, it will reference to that exploit. In other words, it doesn't only use searchengine pages, it also fetches information of cvedetails pages and exploit-db pages
+* If it finds exact CVE numbers, it will fetch the details from the cvedetail-website and bring them to you
+* If it finds a public exploit on the cvedetails page, it will fetch that exploit as well. 
+* In other words, it doesn't only use searchengine pages, it also fetches information of cvedetails pages and exploit-db pages
+
 ### Scoring:
-* For each trusted site that returns a result, it get's one point.
+* For each trusted site that returns a result, a score is attributed. If the searchterm doesn't return any sites that are vulnerability-authorities, it penelizes the score.
+* If an exact match for the complete version number is found, it adds to the score. So in our example if '1.15.2' would be found, this would result in a higher score.
 * If names or version numbers aren't found, it penelizes the score.
-* If an exact match for the complete version number is found, it adds to the score. So in our example if '1.15.2' would be found, this would result in a higher score
-* If an exact cve-number is found, the details of that cve are fetched. If those details contain indications of a severe vulnerability, resulting in a higher score
+* If an exact cve-number is found, the details of that cve are fetched. If those details contain indications of a severe vulnerability, this results in a higher score.
 
 ## Error reporting
-* This is still in beta: I have one error that sometimes throws off searches. It seems to have something to do with the useragent, but I have a hard time tracking the bug down. 
+* This software is still beta-stage: I have one error that sometimes throws off searches. It seems to have something to do with the useragent, but I have a hard time tracking the bug down. 
 * If the tool doesn't find a vulnerability that you were able to find manually, please report an issue. Provide a sample of the file you used as input and a page where you eventually found the vulnerability.
 
 ## Suggested Development Roadmap
