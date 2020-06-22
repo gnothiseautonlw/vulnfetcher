@@ -630,7 +630,7 @@ class Vulnfetcher:
         If you feed it something that has no xml extension, it supposes you feed it a dpkg-dump"""
         
         #file doesn't exist
-        if not os.path.exists('filename'):
+        if not os.path.exists(os.path.join(os.getcwd(), filename)):
             return "single_search"
         
         #file with extension .xml
