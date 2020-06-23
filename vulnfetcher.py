@@ -472,8 +472,8 @@ class Vulnfetcher:
             print(Formatting.bold, Formatting.underline)
             print("Score: " + db[exploit_id]['score_string'] + ' - ' +
                   self.limit_characters(db[exploit_id]['title'], '+10') + " " +
-                  Formatting.reset + ' (' + Formatting.fgcolor.blue +
-                  db[exploit_id]['url'] + Formatting.reset + ')')
+                  Formatting.reset + ' ( ' + Formatting.fgcolor.blue +
+                  db[exploit_id]['url'] + Formatting.reset + ' )')
             for module in db[exploit_id]['modules']:
                 if title_needed:
                     print("Found for: ", end='')
@@ -559,7 +559,7 @@ class Vulnfetcher:
                 title_needed = True
                 f.write('\n')
                 f.write("Score: " + db[exploit_id]['score_string'] + ' - ' +
-                      self.limit_characters(db[exploit_id]['title'], '+10') + ' (' + db[exploit_id]['url'] + ')' + '\n')
+                      self.limit_characters(db[exploit_id]['title'], '+10') + ' ( ' + db[exploit_id]['url'] + ' )' + '\n')
                 for module in db[exploit_id]['modules']:
                     if title_needed:
                         f.write("Found for: ")
