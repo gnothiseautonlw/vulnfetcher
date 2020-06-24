@@ -95,13 +95,20 @@ class Vulnfetcher:
 
         self.force_google = force_google
         self.short_report = short_report
+        self.use_proxy = False #debug purposes, but might expose it later
 
         #reporting
         self.print_exploits = print_exploits
         self.print_exploits_character_limit = 57
 
         self.header_user_agent = {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0'}
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Referer': 'https://duckduckgo.com/',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Upgrade-Insecure-Requests': '1'}
         # self.header_user_agent = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36'}
         if force_google:
             self.search_engine_delay = 5
@@ -206,11 +213,17 @@ class Vulnfetcher:
 
         try:
             data = {
-                'q': '"' + self.db_module['name'] + '" "' + self.db_module['version_mayor_minor'] + '" exploit'
+                'q': '"' + self.db_module['name'] + '" "' + self.db_module['version_mayor_minor'] + '" exploit',
+                'b': '',
+                'kl': '',
+                'df': ''
             }
-            #proxies = {"http": "http://127.0.0.1:8080", "https": "http://127.0.0.1:8080"}
-            #page = requests.post("https://duckduckgo.com/html/", headers=self.header_user_agent, data=data, proxies=proxies, verify=False)
-            page = requests.post("https://duckduckgo.com/html/", headers=self.header_user_agent, data=data)
+            self.use_proxy = True
+            if self.use_proxy:
+                proxies = {"http": "http://127.0.0.1:8080", "https": "http://127.0.0.1:8080"}
+                page = requests.post("https://duckduckgo.com/html/", headers=self.header_user_agent, data=data, proxies=proxies, verify=False)
+            else:
+                page = requests.post("https://duckduckgo.com/html/", headers=self.header_user_agent, data=data)
 
             #page = requests.get(self.db_search['url'], headers=self.header_user_agent, proxies=proxies, verify=False)
             #page = requests.get(self.db_search['url'], headers=self.header_user_agent)
