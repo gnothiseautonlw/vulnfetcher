@@ -58,7 +58,7 @@ class Vulnfetcher:
     """A class to lookup (currently only a dpkg generated file 'dpkg -l > file') modules
     for known vulnerabilities"""
 
-    def __init__(self, filename, parse=True, output=True, print_report=True, short_report=False, print_exploits=False, force_google=False):
+    def __init__(self, filename, parse=True, output=True, print_report=True, short_report=False, print_exploits=False, force_google=False, use_proxy_burp=False):
         """When initializing the class, a path to a file is provided
         I do a line count on the file (This was to implement a progressbar, which isn't done yet)
         I then start processing the file"""
@@ -95,7 +95,7 @@ class Vulnfetcher:
 
         self.force_google = force_google
         self.short_report = short_report
-        self.use_proxy = False #debug purposes, but might expose it later
+        self.use_proxy_burp = use_proxy_burp #debug purposes, but might expose it later
 
         #reporting
         self.print_exploits = print_exploits
@@ -218,8 +218,7 @@ class Vulnfetcher:
                 'kl': '',
                 'df': ''
             }
-            self.use_proxy = True
-            if self.use_proxy:
+            if self.use_proxy_burp:
                 proxies = {"http": "http://127.0.0.1:8080", "https": "http://127.0.0.1:8080"}
                 page = requests.post("https://duckduckgo.com/html/", headers=self.header_user_agent, data=data, proxies=proxies, verify=False)
             else:
@@ -229,7 +228,11 @@ class Vulnfetcher:
             #page = requests.get(self.db_search['url'], headers=self.header_user_agent)
 
             time.sleep(self.search_engine_delay)
-        except:
+        except requests.exceptions.ProxyError as err:
+            print("Proxy Error. Is it running? Please check configuration.")
+            self.db_search['status_code'] = '???'
+            return []
+        except Exception as e:
             self.db_search['status_code'] = '???'
             return []
         else:
@@ -873,9 +876,11 @@ parser.add_argument("-se", "--show-exploits", action="store_true",
                     help="By default exploits aren't listed in the command line status report (the output during the search). Use this flag if you want to show them in the report during search")
 parser.add_argument("-fg", "--force-google", action="store_true",
                     help="By default the duckduckgo searchengine is used. You can force to use google as searchengine. Just know that google will probably ban yo ass after about 150 searches: they don't like that you crawl their website")
+parser.add_argument("-pb", "--proxy-burp", action="store_true",
+                    help="By default no proxy is used. If you want to use the burpsuite proxy, use this argument")
 args = parser.parse_args()
 input_file = args.input
 
 test = args.force_google
 
-vulnfetcher = Vulnfetcher(input_file, True, not args.no_output, not args.no_report, args.short_report, args.show_exploits, args.force_google)
+vulnfetcher = Vulnfetcher(input_file, True, not args.no_output, not args.no_report, args.short_report, args.show_exploits, args.force_google, args.proxy_burp)
