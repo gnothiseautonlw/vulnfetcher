@@ -461,8 +461,8 @@ class Vulnfetcher:
                 if db[module_id]['score']['total'] > 0:
                     print(Formatting.bold, Formatting.underline)
                     print(db[module_id]['module']['name'] + " " + db[module_id]['module']['version_complete'] +
-                          Formatting.reset + ' (' + Formatting.fgcolor.blue + db[module_id]['search'][
-                              'url'] + Formatting.reset + ')')
+                          Formatting.reset + ' ( ' + Formatting.fgcolor.blue + db[module_id]['search'][
+                              'url'] + Formatting.reset + ' )')
                     print(Formatting.bold + 'Score: ' + db[module_id]['score']['total_string'] + Formatting.reset)
                     url_counter = 1
                     for result_id in db[module_id]['results']:
@@ -510,8 +510,8 @@ class Vulnfetcher:
                                   db[module_id]['module']['version_complete'] +
                                   Formatting.reset + Formatting.bold +
                                   ' - Score: ' + db[module_id]['score']['total_string'] +
-                                  Formatting.reset + ' (' + Formatting.fgcolor.blue +
-                                  db[module_id]['search']['url'] + Formatting.reset + ')')
+                                  Formatting.reset + ' ( ' + Formatting.fgcolor.blue +
+                                  db[module_id]['search']['url'] + Formatting.reset + ' )')
                             title_needed = False
                         print(db[module_id]['results'][result_id]['snippet'] + ": ", end='')
                         print(Formatting.fgcolor.blue, db[module_id]['results'][result_id]['url'] + Formatting.reset)
@@ -549,7 +549,7 @@ class Vulnfetcher:
         with open(filename, 'w') as f:
             for module_id in self.db_sorted:
                 if self.db[module_id]['score']['total'] > 0:
-                    title = self.db[module_id]['module']['name'] + " " + self.db[module_id]['module']['version_complete'] + ' (' + self.db[module_id]['search']['url'] + ')'
+                    title = self.db[module_id]['module']['name'] + " " + self.db[module_id]['module']['version_complete'] + ' ( ' + self.db[module_id]['search']['url'] + ' )'
                     f.write('\n')
                     self.starwrap(title, f)
                     f.write('Score: ' + self.db[module_id]['score']['total_string'] + '\n')
