@@ -1,7 +1,7 @@
 # Vulnfetcher
 > An enumeration tool similar to searchsploit: it searches the web for known vulnerabilities. It fetches related information and public available exploits, scores the results and orders them based on frequency and severity.
 
-> It differs from searchsploit in that it uses searchengines. It is slower, but more forgiving when it comes to search-terms, it's able to process large lists unattended in the background and plays well with nmap.
+> It differs from searchsploit in that it uses searchengines. It is more forgiving when it comes to search-terms, always gives up-to-date results and plays well with nmap. It's able to process large lists unattended in the background
 
 > ![Vulnfetcher Nmap Demo](/demo/vulnfetcher_simple_search_and_nmap_chain.gif)
 
@@ -18,16 +18,21 @@ git clone https://github.com/gnothiseautonlw/vulnfetcher.git
 ```
 ### Verify everything works
 ```
-cd /opt/vulnfetcher
-python3 vulnfetcher.py benchmark
+python3 /opt/vulnfetcher/vulnfetcher.py ^benchmark^me
 ```
-> You should get an output similar to:
+> The software will test modules with known vulnerabilities and return their results for each searchengine.
 ```
-Status: 200 - Score: 7 - JAMES smtpd  2.3.2 - https://duckduckgo.com/html/?q=%22JAMES+smtpd+%22+%222.3%22+exploit
-Status: 200 - Score: 7 - JAMES pop3d  2.3.2 - https://duckduckgo.com/html/?q=%22JAMES+pop3d+%22+%222.3%22+exploit
-Status: 200 - Score: 18 - libpam-modules  1.1.0 - https://duckduckgo.com/html/?q=%22libpam-modules+%22+%221.1%22+exploit 
+Testing Google...
+
+Status: 200 - Score: 8 - JAMES pop3d 2.3.2 - https://www.google.com/search?q=%22JAMES%22+pop3d+%222.3%22+exploit
+Status: 200 - Score: 18 - libpam-modules 1.1.0 - https://www.google.com/search?q=%22libpam-modules%22+%221.1%22+exploit
+Status: 200 - Score: 10 - Microsoft IIS httpd 6.0 - https://www.google.com/search?q=%22Microsoft%22+IIS+httpd+%226.0%22+exploit
+
+Testing DuckDuckGo...
+
+...
 ```
-> If you receive scores that are below 3 for any of these, you are encountering a known bug. Please report. Unless fixed you can not use this tool reliably
+> High scores (> 6) for each module, means reliable results for this searchengine. If you receive scores that are below 3 then avoid using this searchengine. Instructions will be provided. If both searchengines produce low scores, please report.
 
 ## Usage
 ### simple search

@@ -121,27 +121,43 @@ class Vulnfetcher:
             print("Starting vulnfetcher" + Formatting.reset + " (https://github.com/gnothiseautonlw/vulnfetcher)")
             print("Detecting filetype: ", end='')
             self.file_identifier = self.identify_file(filename)
-            if self.file_identifier == 'single_search':
-                print("file not found. Treating it as a single-search for the term: " + filename)
-                #We don't want any outputfiles to be generated
+            if self.file_identifier == 'benchmark':
+                print("benchmarking. Testing searchengines.")
+                #We don't want any outputfiles or report to be generated
                 output = False
-                #Reduce the processed search results
-                self.get_top_n = 5
-                self.process_single_search(filename)
+                print_report = False
+                print(Formatting.bold)
+                print("Testing google..." + Formatting.reset)
+                self.search_engine = 'google'
+                self.process_benchmark()
+                print("\nGoogle is used by default for single-searches and nmap files.\nNote: works great for occasional searches, but it will ban you after about 150 sequential searches with a 5 seconds interval. Don't use this to process long lists.")
+                print(Formatting.bold)
+                print("Testing duckduckgo..." + Formatting.reset)
+                self.search_engine = 'duckduckgo'
+                self.process_benchmark()
+                print("\nDuckDuckGo works faster, but doesn't always work. Because of it's speed, it's used by default for tab-separated files and dpkg-file lists.\nIf you see scores of '0', then use the '--force-google' argument when processing tab-separated or dpkg-files. You can safely parse a list of 120 modules, but if you want to process lists over 150 modules, then break them up in smaller parts or you risk a temporary ban from google.\n")
             else:
-                self.output_file = filename + ".vulnfetcher"
-                if self.file_identifier == "nmap":
-                    print("found an xml file. Treating it as nmap xml.")
-                    print()
-                    self.process_nmap(filename)
-                elif self.file_identifier == 'tab':
-                    print("found text file. Treating it as tab-separated file.")
-                    print()
-                    self.process_tab(filename)
+                if self.file_identifier == 'single_search':
+                    print("file not found. Treating it as a single-search for the term: " + filename)
+                    #We don't want any outputfiles to be generated
+                    output = False
+                    #Reduce the processed search results
+                    self.get_top_n = 5
+                    self.process_single_search(filename)
                 else:
-                    print("found text file. Treating it as a dpkg-dump.")
-                    print()
-                    self.process_dpkg(filename)
+                    self.output_file = filename + ".vulnfetcher"
+                    if self.file_identifier == "nmap":
+                        print("found an xml file. Treating it as nmap xml.")
+                        print()
+                        self.process_nmap(filename)
+                    elif self.file_identifier == 'tab':
+                        print("found text file. Treating it as tab-separated file.")
+                        print()
+                        self.process_tab(filename)
+                    else:
+                        print("found text file. Treating it as a dpkg-dump.")
+                        print()
+                        self.process_dpkg(filename)
         if output:
             print(Formatting.bold)
             print("Writing files... " + Formatting.reset)
@@ -660,6 +676,10 @@ class Vulnfetcher:
         if you feed it a file with an xml extension, it supposes a nmap-xml
         If you feed it something that has no xml extension, it supposes you feed it a dpkg-dump"""
         
+        #benchmark
+        if filename == '^benchmark^me':
+            return "benchmark"
+
         #file doesn't exist
         if not os.path.exists(os.path.join(os.getcwd(), filename)):
             return "single_search"
@@ -803,6 +823,28 @@ class Vulnfetcher:
 
         self.print_status()
 
+        self.db_sorted = self.sort_dict(self.db)
+
+    def process_benchmark(self):
+        """Perform a benchmark of the searchengines. This tests against modules known to be vulnerable
+        They each have to produce high scores or the searches are not reliable"""
+
+        for module in ["JAMES pop3d\t2.3.2", "libpam-modules\t1.1.0", "Microsoft IIS httpd\t6.0"]:
+            self.db_search = {}
+            self.db_results = {}
+            self.db_module = {}
+            if self.parse_tab(module):
+                self.fetch_vulnerabilities()
+            else:
+                continue
+
+            self.db[self.db_score['total_string'] + ' - ' + self.db_module['name'] + " " + self.db_module[
+                'version_complete']] = {"module": self.db_module, "score": self.db_score,
+                                        "search": self.db_search,
+                                        "results": self.db_results}
+
+            self.print_status()
+        # if the entire file is processes, create a sorted database
         self.db_sorted = self.sort_dict(self.db)
 
     def process_tab(self, filename):
