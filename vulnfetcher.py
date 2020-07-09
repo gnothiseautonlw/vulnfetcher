@@ -58,7 +58,7 @@ class Vulnfetcher:
     """A class to lookup (currently only a dpkg generated file 'dpkg -l > file') modules
     for known vulnerabilities"""
 
-    def __init__(self, filename, parse=True, output=True, print_report=True, short_report=False, print_exploits=False, force_google=False, use_proxy_burp=False):
+    def __init__(self, filename, parse=True, output=True, print_report=True, short_report=False, print_exploits=False, search_engine='', use_proxy_burp=False):
         """When initializing the class, a path to a file is provided
         I do a line count on the file (This was to implement a progressbar, which isn't done yet)
         I then start processing the file"""
@@ -93,9 +93,9 @@ class Vulnfetcher:
         self.cvedetails_gained_access_score_weight = 3
         self.exploit_available_score_weight = 2
 
-        self.force_google = force_google
+        self.search_engine = search_engine
         self.short_report = short_report
-        self.use_proxy_burp = use_proxy_burp #debug purposes, but might expose it later
+        self.use_proxy_burp = use_proxy_burp
 
         #reporting
         self.print_exploits = print_exploits
@@ -110,7 +110,7 @@ class Vulnfetcher:
             'Content-Type': 'application/x-www-form-urlencoded',
             'Upgrade-Insecure-Requests': '1'}
         # self.header_user_agent = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36'}
-        if force_google:
+        if self.search_engine == 'google':
             self.search_engine_delay = 5
         else:
             self.search_engine_delay = 0
@@ -120,8 +120,8 @@ class Vulnfetcher:
             print(Formatting.bold)
             print("Starting vulnfetcher" + Formatting.reset + " (https://github.com/gnothiseautonlw/vulnfetcher)")
             print("Detecting filetype: ", end='')
-            file_identifier = self.identify_file(filename)
-            if file_identifier == 'single_search':
+            self.file_identifier = self.identify_file(filename)
+            if self.file_identifier == 'single_search':
                 print("file not found. Treating it as a single-search for the term: " + filename)
                 #We don't want any outputfiles to be generated
                 output = False
@@ -130,11 +130,11 @@ class Vulnfetcher:
                 self.process_single_search(filename)
             else:
                 self.output_file = filename + ".vulnfetcher"
-                if file_identifier == "nmap":
+                if self.file_identifier == "nmap":
                     print("found an xml file. Treating it as nmap xml.")
                     print()
                     self.process_nmap(filename)
-                elif file_identifier == 'tab':
+                elif self.file_identifier == 'tab':
                     print("found text file. Treating it as tab-separated file.")
                     print()
                     self.process_tab(filename)
@@ -654,16 +654,35 @@ class Vulnfetcher:
         if extension == ".xml":
             return "nmap"
         else:
+            test_counter = 0
+            dpkg_counter = 0
+            tab_counter = 0
             with open(filename) as file:
                 for line in file:
                     test = line.split('\t')
                     if len(test) == 2:
                         try:
+                            #Try to verify the presence of version numbers in the second column
                             test2 = re.search('(\d*\.\d|\d*:\d*\.\d|\d\d*)', test[1], flags=re.DOTALL).group(0).strip()
                         except:
-                            return "dpkg"
+                            #if you can't find them, this is probably a dpkg
+                            dpkg_counter += 1
                         else:
-                            return "tab"
+                            #if you can find them, this is probably a tab-separated file
+                            tab_counter += 1
+                    else:
+                        #increase dpkg counter
+                        dpkg_counter += 1
+                    test_counter += 1
+
+                    #don't do the entire file, just take a sample of 5 lines
+                    if test_counter > 5:
+                        break
+            #test the result
+            if dpkg_counter > tab_counter:
+                return "dpkg"
+            else:
+                return "tab"
 
     def fetch_vulnerabilities(self):
         """Do a search on a searchengine, parse the results and give it a score"""
@@ -675,10 +694,16 @@ class Vulnfetcher:
         self.db_score['exploit_available_but_no_name_match'] = 0
         self.db_score['exploit_available_but_no_version_mayor_minor_match'] = 0
         # then get the search results for this module-name and version number
-        if self.force_google:
-            self.searchengine_links = self.get_google_links()
+        if self.search_engine == '':
+            if self.file_identifier == 'tab' or self.file_identifier == 'dpkg':
+                self.searchengine_links = self.get_duckduck_links()
+            else:
+                self.searchengine_links = self.get_google_links()
         else:
-            self.searchengine_links = self.get_duckduck_links()
+            if self.search_engine == 'google':
+                self.searchengine_links = self.get_google_links()
+            else:
+                self.searchengine_links = self.get_duckduck_links()
         # For each link, iterate over it
         for link in self.searchengine_links:
             self.db_result = {}
@@ -875,12 +900,18 @@ parser.add_argument("-sr", "--short-report", action="store_true",
 parser.add_argument("-se", "--show-exploits", action="store_true",
                     help="By default exploits aren't listed in the command line status report (the output during the search). Use this flag if you want to show them in the report during search")
 parser.add_argument("-fg", "--force-google", action="store_true",
-                    help="By default the duckduckgo searchengine is used. You can force to use google as searchengine. Just know that google will probably ban yo ass after about 150 searches: they don't like that you crawl their website")
+                    help="By default the duckduckgo searchengine is used for longer lists (and google is used for short searches). You can force to use google in all cases. Just know that google will probably ban yo ass after about 150 searches: they don't like that you crawl their website")
+parser.add_argument("-fd", "--force-duckduckgo", action="store_true",
+                    help="By default the google searchengine is used for short searches (and duckduckgo for longer lists). You can force to use duckduckgo as searchengine in all cases. Just be mindful about the fact that using duckduckgo still carries a bug. Be sure to run the 'benchmark' before you use this")
 parser.add_argument("-pb", "--proxy-burp", action="store_true",
                     help="By default no proxy is used. If you want to use the burpsuite proxy, use this argument")
 args = parser.parse_args()
 input_file = args.input
 
-test = args.force_google
+search_engine = ''
+if args.force_google:
+    search_engine = 'google'
+if args.force_duckduckgo:
+    search_engine = 'duckduckgo'
 
-vulnfetcher = Vulnfetcher(input_file, True, not args.no_output, not args.no_report, args.short_report, args.show_exploits, args.force_google, args.proxy_burp)
+vulnfetcher = Vulnfetcher(input_file, True, not args.no_output, not args.no_report, args.short_report, args.show_exploits, search_engine, args.proxy_burp)
