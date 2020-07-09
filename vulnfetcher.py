@@ -146,6 +146,8 @@ class Vulnfetcher:
             print(Formatting.bold)
             print("Writing files... " + Formatting.reset)
             f = self.store_output()
+            if f == False:
+                print("Nothing found, can't write json")
             print('Raw json-data dumped to: ' + f)
             f = self.store_report()
             print('Report written to: ' + f)
@@ -879,10 +881,16 @@ class Vulnfetcher:
 
         if sort_order == "d":
             with open(filename, 'w') as outfile:
-                json.dump(self.db, outfile, sort_keys=True, indent=4)
+                try:
+                    json.dump(self.db, outfile, sort_keys=True, indent=4)
+                except:
+                    return False
         else:
             with open(filename, 'w') as outfile:
-                json.dump(self.db_sorted, outfile, indent=4)
+                try:
+                    json.dump(self.db_sorted, outfile, indent=4)
+                except:
+                    return False
 
         return filename
 
