@@ -275,9 +275,22 @@ class Vulnfetcher:
 
         # Use the format "module-name"+"module-version"+"exploit" (the '"' are used to enforce that google
         # has to include it, and can't leave it out... gives a bunch of false positives otherwise that are irrelevant
-        search_term = '%22' + self.db_module['name'] + '%22+%22' + self.db_module['version_mayor_minor'] + '%22+exploit'
-        self.db_search['term'] = search_term
-        self.db_search['url'] = "https://www.google.com/search?q=" + search_term
+
+        module_name_parts = self.db_module['name'].split(' ')
+        if len(module_name_parts) > 1:
+            counter = 0
+            for part in module_name_parts:
+                if counter == 0:
+                    module_name_search_term = '"' + part + '"'
+                else:
+                    module_name_search_term = module_name_search_term + ' ' + part
+                counter += 1
+        else:
+            module_name_search_term = '"' + self.db_module['name'] + '"'
+
+        search_term = module_name_search_term + ' "' + self.db_module['version_mayor_minor'] + '" exploit'
+        self.db_search['term'] = urllib.parse.quote_plus(search_term)
+        self.db_search['url'] = "https://www.google.com/search?q=" + self.db_search['term']
 
         try:
             page = requests.get(self.db_search['url'], headers=self.header_user_agent)
